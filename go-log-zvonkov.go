@@ -85,6 +85,14 @@ func readcfgs(namef string) map[string]DataTelMans {
 	return s_inputdata
 }
 
+func devidezero(i1,i2 int) int{
+	if i2==0 {
+		return 0
+	} else{
+		return i1/i2
+	}	
+}
+
 func savetoxlsx(namef string, datas map[string]DataTelMans) {
 	var file *xlsx.File
 	var sheet *xlsx.Sheet
@@ -107,7 +115,8 @@ func savetoxlsx(namef string, datas map[string]DataTelMans) {
 		"всего кол-во звонков",
 		"кол-во уникальных телефонов",
 		"кол-во результ. звонков",
-		"продолжительность уникальных"}
+		"продолжительность уникальных",
+		"средняя время звонка"}
 	for i := 0; i < len(titletab); i++ {
 		cell = row.AddCell() // добавить ячейку в текущей строке
 		cell.Value = titletab[i]
@@ -131,6 +140,8 @@ func savetoxlsx(namef string, datas map[string]DataTelMans) {
 		cell.Value = strconv.Itoa(datas[key].kolresult)
 		cell = row.AddCell()
 		cell.Value = sec_to_s(datas[key].secresult)
+		cell = row.AddCell()
+		cell.Value =  sec_to_s(devidezero(datas[key].totalsec,datas[key].totalzv))
 
 	}
 
@@ -224,7 +235,8 @@ func genhtmltable(datas map[string]DataTelMans, zagol string) string {
 		"всего кол-во звонков",
 		"кол-во уникальных телефонов",
 		"кол-во результ. звонков",
-		"продолжительность уникальных"}
+		"продолжительность уникальных",
+		"средняя время звонка"}
 	tabletitle := gentablestroka(titletab)
 
 	tabledata := ""
@@ -237,7 +249,8 @@ func genhtmltable(datas map[string]DataTelMans, zagol string) string {
 			strconv.Itoa(datas[key].totalzv),
 			strconv.Itoa(datas[key].kolunik),
 			strconv.Itoa(datas[key].kolresult),
-			sec_to_s(datas[key].secresult)}
+			sec_to_s(datas[key].secresult),
+			strconv.Itoa(devidezero(datas[key].totalsec,datas[key].totalzv))}
 
 		tabledata += gentablestroka(str)
 	}
