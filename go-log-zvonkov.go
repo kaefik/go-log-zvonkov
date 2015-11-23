@@ -79,22 +79,11 @@ func readcfgs(namef string) map[string]DataTelMans {
 	s_inputdata := make(map[string]DataTelMans)
 	for i := 0; i < len(vv)-1; i++ {
 		vv1 := strings.Split(vv[i], ";")
-		s_inputdata[vv1[0]] = DataTelMans{vv1[2], vv1[1], 0, 0, 0, 0}
+		s_inputdata[vv1[0]] = DataTelMans{vv1[2], vv1[1], 0, 0, 0, 0,0}
 
 	}
 	return s_inputdata
 }
-
-//func savetopdf(namef string,datas map[string]DataTelMans)  {
-//	pdf := gofpdf.New("L", "mm", "A4", "")
-//	pdf.AddPage()
-//	pdf.SetFont("helvetica", "", 12)
-//	stroka:=datas["15137"].fio_rg+" "+datas["15137"].fio_man+" "+strconv.Itoa(datas["15137"].totalsec)+" "+strconv.Itoa(datas["15137"].kolunik)+" "+strconv.Itoa(datas["15137"].kolresult)
-//	pdf.Cell(40, 10, stroka)
-//	err := pdf.OutputFileAndClose(namef)
-//	fmt.Println(err)
-//	//rerurn err
-//}
 
 func savetoxlsx(namef string, datas map[string]DataTelMans) {
 	var file *xlsx.File
@@ -115,6 +104,7 @@ func savetoxlsx(namef string, datas map[string]DataTelMans) {
 		"номер телефона",
 		"ФИО менеджера",
 		"всего продолжит-ть",
+		"всего кол-во звонков",
 		"кол-во уникальных телефонов",
 		"кол-во результ. звонков",
 		"продолжительность уникальных"}
@@ -133,6 +123,8 @@ func savetoxlsx(namef string, datas map[string]DataTelMans) {
 		cell.Value = datas[key].fio_man
 		cell = row.AddCell()
 		cell.Value = sec_to_s(datas[key].totalsec)
+		cell = row.AddCell()
+		cell.Value = strconv.Itoa(datas[key].totalzv)
 		cell = row.AddCell()
 		cell.Value = strconv.Itoa(datas[key].kolunik)
 		cell = row.AddCell()
@@ -229,6 +221,7 @@ func genhtmltable(datas map[string]DataTelMans, zagol string) string {
 		"номер телефона",
 		"ФИО менеджера",
 		"всего продолжит-ть",
+		"всего кол-во звонков",
 		"кол-во уникальных телефонов",
 		"кол-во результ. звонков",
 		"продолжительность уникальных"}
@@ -241,6 +234,7 @@ func genhtmltable(datas map[string]DataTelMans, zagol string) string {
 			key,
 			datas[key].fio_man,
 			sec_to_s(datas[key].totalsec),
+			strconv.Itoa(datas[key].totalzv),
 			strconv.Itoa(datas[key].kolunik),
 			strconv.Itoa(datas[key].kolresult),
 			sec_to_s(datas[key].secresult)}
@@ -300,6 +294,7 @@ type InputDataTel struct {
 	telsource string // источник звонка (кто звонил)
 	secs      int    // продолжительность в сек
 	teldest   string // куда звонил источник
+
 }
 
 // структура справочника телефонов менеджеров
@@ -310,6 +305,7 @@ type DataTelMans struct {
 	kolunik   int    //кол-во уникальных телефонных номеров
 	kolresult int    //кол-во результативных звоноков
 	secresult int    // продолжительность результативных звонков (в сек)
+	totalzv   int  // общее кол-во звоноков
 }
 
 
@@ -399,13 +395,12 @@ func main() {
 	s_inputdata := make([]InputDataTel, 0)
 	for i := 0; i < len(vv)-1; i++ {
 		vv1 = strings.Split(vv[i], ";")
-//		if strings.Contains(vv1[0], tekdate) { // фильтрация выборки по текущей дате tekdate
-//			isec, _ := strconv.Atoi(vv1[10]) //конвертация из string в int
-//			s_inputdata = append(s_inputdata, InputDataTel{vv1[0], vv1[1], isec, vv1[2]})
-//		}		
-			isec, _ := strconv.Atoi(vv1[10]) //конвертация из string в int
-			s_inputdata = append(s_inputdata, InputDataTel{vv1[0], vv1[1], isec, vv1[2]})		
+		isec, _ := strconv.Atoi(vv1[10]) //конвертация из string в int
+		s_inputdata = append(s_inputdata, InputDataTel{vv1[0], vv1[1], isec, vv1[2]})		
 	}
+	
+    fmt.Println(s_inputdata)
+
 
 
 	var buf_telunik map[string]int // буфер уникальных номеров для текущего внутр номера - длина этого map будет кол-во уникальных номеров
@@ -413,9 +408,11 @@ func main() {
 	kolres := 0
 	totressec := 0
 	totsec := 0
+	totkol:=0 // общее кол-во звонков
 	for key, _ := range strnumtel {
 		numtel := key
 		buf_telunik = make(map[string]int)
+		totkol=0 // общее кол-во звонков
 		kolres = 0    // счетчик кол-ва результативных звонков
 		totressec = 0 // счетчик продолжительности результативных звонков
 		totsec = 0    // счетчик общей продолжительности звонков
@@ -425,15 +422,18 @@ func main() {
 				ss = append(ss, s_inputdata[i])
 				buf_telunik[s_inputdata[i].teldest] += 1
 				totsec += s_inputdata[i].secs
+				totkol+=1
 				if s_inputdata[i].secs >= res_sec { // фильтрация по условию результирующего звонка
 					kolres += 1
 					totressec += s_inputdata[i].secs
 				}
-			}
-			tm := strnumtel[key]
-			strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, totsec, len(buf_telunik), kolres, totressec}
+			}			
 		}
+		tm := strnumtel[key]
+		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, totsec, len(buf_telunik), kolres, totressec,totkol}
 	}
+
+	 fmt.Println(strnumtel)
 
 	savetoxlsx(namefresult+".xlsx", strnumtel)
 	str_title := "Лог звонков:  с \n" + begyearmonth + "-" + begday + " по " + endyearmonth + "-" + endday + ". Выгружено: " + curdate.String()
