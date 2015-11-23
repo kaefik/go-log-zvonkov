@@ -14,17 +14,22 @@ import (
 var (
 	d1 string // начальная дата выгрузки
 	d2 string // конечная дата выгрузки
+	fweek string // флаг недельной выгрузки
 )
 
 func parse_args() bool {
 	flag.StringVar(&d1, "d1", "", "Начальная дата выгрузки лога звонков: YYYY-MM-DD")
 	flag.StringVar(&d2, "d2", "", "Конечная дата выгрузки лога звонков: YYYY-MM-DD")
+	flag.StringVar(&fweek, "week", "", "Флаг недельной выгрузки: 1")
 	flag.Parse()
 	if d1 == "" {
 		fmt.Println("Не задан параметр -d1 . Будет использована текущая системная дата", d1)
 	}
 	if d2 == "" {
 		fmt.Println("Не задан параметр -d2 . Будет использована текущая системная дата", d2)
+	}
+	if fweek == "" {
+		fmt.Println("Не задан параметр -week . Будет использована текущая системная дата", d2)
 	}
 	return true
 }
@@ -371,7 +376,8 @@ func main() {
 		begyearmonth, begday, endyearmonth, endday string
 	)
 	
-	curdate := time.Now()
+	curdate := time.Now()		
+	
 	
 	if (d1!="") {
 		begyearmonth,begday=parse_date(d1)		
@@ -382,14 +388,30 @@ func main() {
 				tekyear, tekmonth, tekday := time.Now().Date()
 				begyearmonth=strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
 				endyearmonth=strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
-				fmt.Println(tekday)
+				//fmt.Println(tekday)
 				begday=strconv.Itoa(tekday)
 				endday=strconv.Itoa(tekday)
-			}		
+			}	
+			
+	if (fweek!="") {	
+				tekyear, tekmonth, tekday := time.Now().Date()				
+				//let stekday = if (tekday-4)<1 then "1" else string (tekday-4)				
+				if  (tekday-4)<1 {
+									begday="1"					
+				} else{
+						begday=strconv.Itoa(tekday-4)
+				}	
+				begyearmonth=strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))		
+				endyearmonth=strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
+				endday=strconv.Itoa(tekday)
+//				fmt.Println(begyearmonth+"."+begday)
+//				fmt.Println(endyearmonth+"."+endday)
+				
+			}				
 //----------------------------------------------
 
-	tekdate := begyearmonth+"-"+begday
-	fmt.Println(tekdate)
+//	tekdate := begyearmonth+"-"+begday
+	//fmt.Println(tekdate)
 	
 	suri := "http://voip.2gis.local/cisco-stat/cdr.php?s=1&t=&order=dateTimeOrigination&sens=DESC&current_page=0&posted=1&current_page=0&fromstatsmonth=" + begyearmonth + "&tostatsmonth=" + endyearmonth + "&Period=Day&fromday=true&fromstatsday_sday=" + begday + "&fromstatsmonth_sday=" + begyearmonth + "&today=true&tostatsday_sday=" + endday + "&tostatsmonth_sday=" + endyearmonth + "&callingPartyNumber=&callingPartyNumbertype=2&originalCalledPartyNumber=%2B7&originalCalledPartyNumbertype=2&origDeviceName=&origDeviceNametype=1&destDeviceName=&destDeviceNametype=1&resulttype=min&image16.x=28&image16.y=8"
 	fmt.Println(suri)
@@ -412,7 +434,7 @@ func main() {
 		s_inputdata = append(s_inputdata, InputDataTel{vv1[0], vv1[1], isec, vv1[2]})		
 	}
 	
-    fmt.Println(s_inputdata)
+    //fmt.Println(s_inputdata)
 
 
 
@@ -446,7 +468,7 @@ func main() {
 		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, totsec, len(buf_telunik), kolres, totressec,totkol}
 	}
 
-	 fmt.Println(strnumtel)
+	//fmt.Println(strnumtel)
 
 	savetoxlsx(namefresult+".xlsx", strnumtel)
 	str_title := "Лог звонков:  с \n" + begyearmonth + "-" + begday + " по " + endyearmonth + "-" + endday + ". Выгружено: " + curdate.String()
