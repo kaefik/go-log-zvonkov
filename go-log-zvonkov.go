@@ -9,7 +9,6 @@ import (
 	"time"
 	"log"
 	"io"
-  //  "io/ioutil"
 	"github.com/tealeg/xlsx"
 	"github.com/headzoo/surf"
 )
@@ -35,6 +34,7 @@ func InitLogFile(namef string) *log.Logger {
 	return LFile
 }
 
+// функция парсинга аргументов программы
 func parse_args() bool {
 	flag.StringVar(&d1, "d1", "", "Начальная дата выгрузки лога звонков: YYYY-MM-DD")
 	flag.StringVar(&d2, "d2", "", "Конечная дата выгрузки лога звонков: YYYY-MM-DD")
@@ -59,7 +59,8 @@ func parse_args() bool {
 	return true
 }
 
-func parse_date(s string) (string, string) { // разбивают дату YYYY-MM-DD на 2 части: (YYYY-MM,DD)
+// разбивают дату YYYY-MM-DD на 2 части: (YYYY-MM,DD)
+func parse_date(s string) (string, string) { 
 	s1 := s[0:7]
 	s2 := s[8:10]
 	return s1, s2
@@ -79,7 +80,6 @@ func sec_to_s(s int) string {
 	ss := s - mm*60 - hh*3600
 	return strconv.Itoa(hh) + ":" + strconv.Itoa(mm) + ":" + strconv.Itoa(ss)
 }
-
 
 //новая функция чтения конфиг файла
 func readcfg(namef string) (map[string]DataTelMans,[]string) {
@@ -127,17 +127,6 @@ func readfilecsv(namef string) string {
 	return string(bs)
 }
 
-
-func readcfgs(namef string) map[string]DataTelMans {
-	str := readfilecsv(namef)
-	vv := strings.Split(str, "\n")
-	s_inputdata := make(map[string]DataTelMans)
-	for i := 0; i < len(vv)-1; i++ {
-		vv1 := strings.Split(vv[i], ";")
-		s_inputdata[vv1[0]] = DataTelMans{vv1[2], vv1[1], 0, 0, 0, 0,0}
-	}
-	return s_inputdata
-}
 
 func devidezero(i1,i2 int) int{
 	if i2==0 {
@@ -396,8 +385,8 @@ func main() {
 				endday=strconv.Itoa(tekday)				
 			}				
 	namefresult:= begyearmonth+"-"+begday+" по "+endyearmonth+"-"+endday+"-лог звонков"
-	LogFile.Println("Begin date:",begyearmonth+"-"+begday)
-	LogFile.Println("End date:",endyearmonth+"-"+endday)
+	LogFile.Println("Begin date: ",begyearmonth+"-"+begday)
+	LogFile.Println("End date: ",endyearmonth+"-"+endday)
 //----------------------------------------------
 	suri := "http://voip.2gis.local/cisco-stat/cdr.php?s=1&t=&order=dateTimeOrigination&sens=DESC&current_page=0&posted=1&current_page=0&fromstatsmonth=" + begyearmonth + "&tostatsmonth=" + endyearmonth + "&Period=Day&fromday=true&fromstatsday_sday=" + begday + "&fromstatsmonth_sday=" + begyearmonth + "&today=true&tostatsday_sday=" + endday + "&tostatsmonth_sday=" + endyearmonth + "&callingPartyNumber=&callingPartyNumbertype=2&originalCalledPartyNumber=%2B7&originalCalledPartyNumbertype=2&origDeviceName=&origDeviceNametype=1&destDeviceName=&destDeviceNametype=1&resulttype=min&image16.x=28&image16.y=8"
 	LogFile.Println(suri)
@@ -427,7 +416,7 @@ func main() {
 	for key, _ := range strnumtel {
 		numtel := key
 		buf_telunik = make(map[string]int)
-		totkol=0 // общее кол-во звонков
+		totkol=0      // общее кол-во звонков
 		kolres = 0    // счетчик кол-ва результативных звонков
 		totressec = 0 // счетчик продолжительности результативных звонков
 		totsec = 0    // счетчик общей продолжительности звонков
@@ -435,12 +424,12 @@ func main() {
 		for i := 0; i < len(s_inputdata)-1; i++ {
 			if strings.Contains(s_inputdata[i].telsource, numtel) {
 				ss = append(ss, s_inputdata[i])
-				buf_telunik[s_inputdata[i].teldest] += 1
-				totsec += s_inputdata[i].secs
+				buf_telunik[s_inputdata[i].teldest]+= 1
+				totsec+=s_inputdata[i].secs
 				totkol+=1
 				if s_inputdata[i].secs >= res_sec { // фильтрация по условию результирующего звонка
-					kolres += 1
-					totressec += s_inputdata[i].secs
+					kolres+=1
+					totressec+=s_inputdata[i].secs
 				}
 			}			
 		}
@@ -452,10 +441,6 @@ func main() {
 	str_title := "Лог звонков:  с \n" + begyearmonth + "-" + begday + " по " + endyearmonth + "-" + endday + ". Выгружено: " + curdate.String()
 	LogFile.Println("Saving html report")
 	htmlresult := genhtmlpage0(strnumtel, str_title,keys)
-	savestrtofile(namefresult+".html", htmlresult)
-	
+	savestrtofile(namefresult+".html", htmlresult)	
 	LogFile.Println("The end....")
-
-
-
 }
