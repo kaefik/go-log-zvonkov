@@ -7,6 +7,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"log"
+	"io"
+  //  "io/ioutil"
 	"github.com/tealeg/xlsx"
 	"github.com/headzoo/surf"
 )
@@ -15,7 +18,19 @@ var (
 	d1 string // начальная дата выгрузки
 	d2 string // конечная дата выгрузки
 	fweek string // флаг недельной выгрузки
+	LogFile *log.Logger // 
 )
+
+//инициализация лог файла
+func InitLogFile(namef string) *log.Logger {
+	file, err := os.OpenFile(namef, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	if err != nil {
+	    log.Fatalln("Failed to open log file", os.Stderr, ":", err)
+	}
+	multi:= io.MultiWriter(file, os.Stdout)
+	LFile:= log.New(multi, "Info: ", log.Ldate|log.Ltime|log.Lshortfile)	
+	return LFile
+}
 
 func parse_args() bool {
 	flag.StringVar(&d1, "d1", "", "Начальная дата выгрузки лога звонков: YYYY-MM-DD")
@@ -23,13 +38,17 @@ func parse_args() bool {
 	flag.StringVar(&fweek, "week", "", "Флаг недельной выгрузки: 1")
 	flag.Parse()
 	if d1 == "" {
-		fmt.Println("Не задан параметр -d1 . Будет использована текущая системная дата", d1)
+		//fmt.Println("Не задан параметр -d1 . Будет использована текущая системная дата", d1)
+		LogFile.Println("Не задан параметр -d1 . Будет использована текущая системная дата", d1)
 	}
 	if d2 == "" {
-		fmt.Println("Не задан параметр -d2 . Будет использована текущая системная дата", d2)
+		//fmt.Println("Не задан параметр -d2 . Будет использована текущая системная дата", d2)
+		LogFile.Println("Не задан параметр -d2 . Будет использована текущая системная дата", d2)
 	}
 	if fweek == "" {
-		fmt.Println("Не задан параметр -week .")
+		//fmt.Println("Не задан параметр -week .")
+		LogFile.Println("Не задан параметр -week .")
+
 	}
 	return true
 }
@@ -271,14 +290,11 @@ func savehttptocsv(namef string, suri string, suri2 string) int {
     if err != nil {
         panic(err)
     }
-
-    //bow = surf.NewBrowser()
     err = bow.Open(suri2)
     if err != nil {
         panic(err)
     }
-	rescsv:=bow.Body()
-	
+	rescsv:=bow.Body()	
 	savestrtofile("report.csv",rescsv)
 	return 0
 }
@@ -302,8 +318,6 @@ type DataTelMans struct {
 	secresult int    // продолжительность результативных звонков (в сек)
 	totalzv   int  // общее кол-во звоноков
 }
-
-
 
 func num_mes(m time.Month) int { //переводит из типа time.Month в число
 	res := 0
@@ -341,7 +355,12 @@ func num_mes(m time.Month) int { //переводит из типа time.Month �
 func main() {
 	namef := "Report.csv"
 	nameFlog := "list-num-tel.cfg"	
+	namelogfile:="go-log-zvonkov.log"
 	res_sec := 20 // маркер результативности звонка менеджера (в сек)
+	
+	LogFile=InitLogFile(namelogfile)  // инициализация лог файла
+	
+	LogFile.Println("Starting programm")
 
 //----------------------------------------------
 	if !parse_args() {
@@ -382,21 +401,18 @@ func main() {
 			}	
 			
 	namefresult:= begyearmonth+"-"+begday+" по "+endyearmonth+"-"+endday+"-лог звонков"
-	
+	LogFile.Println("Begin date:",begyearmonth+"-"+begday)
+	LogFile.Println("End date:",endyearmonth+"-"+endday)
 //----------------------------------------------
 
 	suri := "http://voip.2gis.local/cisco-stat/cdr.php?s=1&t=&order=dateTimeOrigination&sens=DESC&current_page=0&posted=1&current_page=0&fromstatsmonth=" + begyearmonth + "&tostatsmonth=" + endyearmonth + "&Period=Day&fromday=true&fromstatsday_sday=" + begday + "&fromstatsmonth_sday=" + begyearmonth + "&today=true&tostatsday_sday=" + endday + "&tostatsmonth_sday=" + endyearmonth + "&callingPartyNumber=&callingPartyNumbertype=2&originalCalledPartyNumber=%2B7&originalCalledPartyNumbertype=2&origDeviceName=&origDeviceNametype=1&destDeviceName=&destDeviceNametype=1&resulttype=min&image16.x=28&image16.y=8"
-	fmt.Println(suri)
+	LogFile.Println(suri)
 	suri2 := "http://voip.2gis.local/cisco-stat/export_csv.php"
-	fmt.Println(suri2)
+	LogFile.Println(suri2)
 	
 	savehttptocsv(namef,suri,suri2)
-
-	str := readfilecsv(namef)	
-	
+	str := readfilecsv(namef)		
 	strnumtel,keys:=readcfg(nameFlog)
-	
-	//fmt.Println(strnumtel)
 
 	//загрузка конфига справочника
 	// ВЫБОРКА НУЖНЫХ ПОЛЕЙ: дата,источник звонка, продолжительность звонка,номер куда звонили
@@ -437,17 +453,19 @@ func main() {
 				}
 			}			
 		}
-		tm := strnumtel[key]
+		tm := strnumtel[key] 
 		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, totsec, len(buf_telunik), kolres, totressec,totkol}
 	}
-
+    
+	LogFile.Println("Saving xlsx report")
 	savetoxlsx0(namefresult+".xlsx", strnumtel,keys)
 	str_title := "Лог звонков:  с \n" + begyearmonth + "-" + begday + " по " + endyearmonth + "-" + endday + ". Выгружено: " + curdate.String()
+	LogFile.Println("Saving html report")
 	htmlresult := genhtmlpage0(strnumtel, str_title,keys)
 	savestrtofile(namefresult+".html", htmlresult)
 	
-	fmt.Println("The end....")
+	LogFile.Println("The end....")
 
-	//savetopdf("лог звонков.pdf",strnumtel)
+
 
 }
