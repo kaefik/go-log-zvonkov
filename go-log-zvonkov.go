@@ -18,7 +18,10 @@ var (
 	d1 string // начальная дата выгрузки
 	d2 string // конечная дата выгрузки
 	fweek string // флаг недельной выгрузки
-	LogFile *log.Logger // 
+	fresult int // длительность результативного звонка (в сек)
+	LogFile *log.Logger // 	
+	begyearmonth, begday, endyearmonth, endday string
+	buf_telunik map[string]int // буфер уникальных номеров для текущего внутр номера - длина этого map будет кол-во уникальных номеров
 )
 
 //инициализация лог файла
@@ -36,19 +39,22 @@ func parse_args() bool {
 	flag.StringVar(&d1, "d1", "", "Начальная дата выгрузки лога звонков: YYYY-MM-DD")
 	flag.StringVar(&d2, "d2", "", "Конечная дата выгрузки лога звонков: YYYY-MM-DD")
 	flag.StringVar(&fweek, "week", "", "Флаг недельной выгрузки: 1")
+	flag.IntVar(&fresult,"fresult",0,"длительность результативного звонка (в сек)")
 	flag.Parse()
 	if d1 == "" {
-		//fmt.Println("Не задан параметр -d1 . Будет использована текущая системная дата", d1)
 		LogFile.Println("Не задан параметр -d1 . Будет использована текущая системная дата", d1)
 	}
-	if d2 == "" {
-		//fmt.Println("Не задан параметр -d2 . Будет использована текущая системная дата", d2)
+	if d2 == "" {		
 		LogFile.Println("Не задан параметр -d2 . Будет использована текущая системная дата", d2)
 	}
 	if fweek == "" {
-		//fmt.Println("Не задан параметр -week .")
 		LogFile.Println("Не задан параметр -week .")
-
+	}
+	if fresult <= 0 {
+		LogFile.Println("Не задан параметр -fresult. Продолжительность результативного звонка - 20 сек.")	
+		fresult=20
+	} else{
+		LogFile.Println("Продолжительность результативного звонка - ",fresult)
 	}
 	return true
 }
@@ -356,24 +362,16 @@ func main() {
 	namef := "Report.csv"
 	nameFlog := "list-num-tel.cfg"	
 	namelogfile:="go-log-zvonkov.log"
-	res_sec := 20 // маркер результативности звонка менеджера (в сек)
-	
-	LogFile=InitLogFile(namelogfile)  // инициализация лог файла
-	
-	LogFile.Println("Starting programm")
+
+	LogFile=InitLogFile(namelogfile)  // инициализация лог файла		
+	LogFile.Println("Starting programm")	
 
 //----------------------------------------------
 	if !parse_args() {
 	   return
- 	}
-	
-	var(
-		begyearmonth, begday, endyearmonth, endday string
-	)
-	
+ 	}			
+	res_sec:=fresult // маркер результативности звонка менеджера (в сек)	
 	curdate := time.Now()		
-	
-	
 	if (d1!="") {
 		begyearmonth,begday=parse_date(d1)		
 	}
@@ -385,11 +383,9 @@ func main() {
 				endyearmonth=strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
 				begday=strconv.Itoa(tekday)
 				endday=strconv.Itoa(tekday)
-			}	
-			
+			}				
 	if (fweek!="") {	
 				tekyear, tekmonth, tekday := time.Now().Date()				
-				//let stekday = if (tekday-4)<1 then "1" else string (tekday-4)				
 				if  (tekday-4)<1 {
 									begday="1"					
 				} else{
@@ -398,18 +394,15 @@ func main() {
 				begyearmonth=strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))		
 				endyearmonth=strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
 				endday=strconv.Itoa(tekday)				
-			}	
-			
+			}				
 	namefresult:= begyearmonth+"-"+begday+" по "+endyearmonth+"-"+endday+"-лог звонков"
 	LogFile.Println("Begin date:",begyearmonth+"-"+begday)
 	LogFile.Println("End date:",endyearmonth+"-"+endday)
 //----------------------------------------------
-
 	suri := "http://voip.2gis.local/cisco-stat/cdr.php?s=1&t=&order=dateTimeOrigination&sens=DESC&current_page=0&posted=1&current_page=0&fromstatsmonth=" + begyearmonth + "&tostatsmonth=" + endyearmonth + "&Period=Day&fromday=true&fromstatsday_sday=" + begday + "&fromstatsmonth_sday=" + begyearmonth + "&today=true&tostatsday_sday=" + endday + "&tostatsmonth_sday=" + endyearmonth + "&callingPartyNumber=&callingPartyNumbertype=2&originalCalledPartyNumber=%2B7&originalCalledPartyNumbertype=2&origDeviceName=&origDeviceNametype=1&destDeviceName=&destDeviceNametype=1&resulttype=min&image16.x=28&image16.y=8"
 	LogFile.Println(suri)
 	suri2 := "http://voip.2gis.local/cisco-stat/export_csv.php"
-	LogFile.Println(suri2)
-	
+	LogFile.Println(suri2)	
 	savehttptocsv(namef,suri,suri2)
 	str := readfilecsv(namef)		
 	strnumtel,keys:=readcfg(nameFlog)
@@ -425,9 +418,7 @@ func main() {
 			isec, _ := strconv.Atoi(vv1[10]) //конвертация из string в int
 			s_inputdata = append(s_inputdata, InputDataTel{vv1[0], vv1[1], isec, vv1[2]})		
 		}
-	}
-	
-  	var buf_telunik map[string]int // буфер уникальных номеров для текущего внутр номера - длина этого map будет кол-во уникальных номеров
+	}  	
 	ss := make([]InputDataTel, 0)
 	kolres := 0
 	totressec := 0
@@ -455,8 +446,7 @@ func main() {
 		}
 		tm := strnumtel[key] 
 		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, totsec, len(buf_telunik), kolres, totressec,totkol}
-	}
-    
+	}    
 	LogFile.Println("Saving xlsx report")
 	savetoxlsx0(namefresult+".xlsx", strnumtel,keys)
 	str_title := "Лог звонков:  с \n" + begyearmonth + "-" + begday + " по " + endyearmonth + "-" + endday + ". Выгружено: " + curdate.String()
