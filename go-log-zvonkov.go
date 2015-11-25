@@ -404,8 +404,10 @@ func main() {
 	for i := 0; i < len(vv); i++ {
 		if vv[i]!=""{
 			vv1 = strings.Split(vv[i], ";")
-			isec, _ := strconv.Atoi(vv1[10]) //конвертация из string в int
-			s_inputdata = append(s_inputdata, InputDataTel{vv1[0], vv1[1], isec, vv1[2]})		
+			if len(vv1)>=10{
+				isec, _ := strconv.Atoi(vv1[10]) //конвертация из string в int
+				s_inputdata = append(s_inputdata, InputDataTel{vv1[0], vv1[1], isec, vv1[2]})		
+			}
 		}
 	}  	
 	ss := make([]InputDataTel, 0)
