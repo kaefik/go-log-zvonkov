@@ -59,13 +59,25 @@ func parse_args() bool {
 	return true
 }
 
-// разбивают дату YYYY-MM-DD на 2 части: (YYYY-MM,DD)
+//  разбивают дату YYYY-MM-DD на 2 части: (YYYY-MM,DD)  - T+
 func parse_date(s string) (string, string) { 
+    if len(s)!=10{
+		//LogFile.Println("некорректная входная дата в фукнции parse_date ",s)
+		return "",""
+	}
+	sy:=s[0:4]
+	sm:=s[5:7]
+	sd:=s[8:10]
+	if (strings.Contains(sy,"-")) || (strings.Contains(sm,"-")) || (strings.Contains(sd,"-")) {
+		//LogFile.Println("некорректная входная дата в фукнции parse_date ",s)
+		return "",""
+	}	
 	s1 := s[0:7]
-	s2 := s[8:10]
+    s2 := s[8:10]
 	return s1, s2
 }
 
+// перевод секунды в часы - T+
 func sec_to_hour(ss int) int {
 	return ss / 3600
 }
@@ -347,6 +359,57 @@ func num_mes(m time.Month) int { //переводит из типа time.Month �
 
 }
 
+
+// ВЫБОРКА НУЖНЫХ ПОЛЕЙ: дата,источник звонка, продолжительность звонка,номер куда звонили
+func viborkafield(str string) []InputDataTel {
+	vv := strings.Split(str, "\n")
+	var vv1 []string
+	s_inputdata := make([]InputDataTel, 0)
+	for i := 0; i < len(vv); i++ {
+		if vv[i]!=""{
+			vv1 = strings.Split(vv[i], ";")
+			if len(vv1)>=10{
+				isec, _ := strconv.Atoi(vv1[10]) //конвертация из string в int
+				s_inputdata = append(s_inputdata, InputDataTel{vv1[0], vv1[1], isec, vv1[2]})		
+			}
+		}
+	}
+	return s_inputdata
+}
+		
+
+func filterdata(strnumtel map[string]DataTelMans, keys []string, s_inputdata []InputDataTel, res_sec int)  map[string]DataTelMans {
+	ss := make([]InputDataTel, 0)
+	kolres := 0
+	totressec := 0
+	totsec := 0
+	totkol:=0 // общее кол-во звонков
+	for key, _ := range strnumtel {
+		numtel := key
+		buf_telunik:=make(map[string]int)
+		totkol=0      // общее кол-во звонков
+		kolres=0    // счетчик кол-ва результативных звонков
+		totressec=0 // счетчик продолжительности результативных звонков
+		totsec=0    // счетчик общей продолжительности звонков
+		// фильтрация по номеру телефона который указан в последовательности numtel
+		for i := 0; i < len(s_inputdata)-1; i++ {
+			if strings.Contains(s_inputdata[i].telsource, numtel) {
+				ss = append(ss, s_inputdata[i])
+				buf_telunik[s_inputdata[i].teldest]+= 1
+				totsec+=s_inputdata[i].secs
+				totkol+=1
+				if s_inputdata[i].secs >= res_sec { // фильтрация по условию результирующего звонка
+					kolres+=1
+					totressec+=s_inputdata[i].secs
+				}
+			}			
+		}
+		tm := strnumtel[key] 
+		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, totsec, len(buf_telunik), kolres, totressec,totkol}
+	}
+	return strnumtel
+}    
+
 func main() {
 	namef := "Report.csv"
 	nameFlog := "list-num-tel.cfg"	
@@ -393,56 +456,22 @@ func main() {
 	suri2 := "http://voip.2gis.local/cisco-stat/export_csv.php"
 	LogFile.Println(suri2)	
 	savehttptocsv(namef,suri,suri2)
+	
 	str := readfilecsv(namef)		
+	
+	//загрузка конфига справочника
 	strnumtel,keys:=readcfg(nameFlog)
 
-	//загрузка конфига справочника
-	// ВЫБОРКА НУЖНЫХ ПОЛЕЙ: дата,источник звонка, продолжительность звонка,номер куда звонили
-	vv := strings.Split(str, "\n")
-	var vv1 []string
-	s_inputdata := make([]InputDataTel, 0)
-	for i := 0; i < len(vv); i++ {
-		if vv[i]!=""{
-			vv1 = strings.Split(vv[i], ";")
-			if len(vv1)>=10{
-				isec, _ := strconv.Atoi(vv1[10]) //конвертация из string в int
-				s_inputdata = append(s_inputdata, InputDataTel{vv1[0], vv1[1], isec, vv1[2]})		
-			}
-		}
-	}  	
-	ss := make([]InputDataTel, 0)
-	kolres := 0
-	totressec := 0
-	totsec := 0
-	totkol:=0 // общее кол-во звонков
-	for key, _ := range strnumtel {
-		numtel := key
-		buf_telunik = make(map[string]int)
-		totkol=0      // общее кол-во звонков
-		kolres = 0    // счетчик кол-ва результативных звонков
-		totressec = 0 // счетчик продолжительности результативных звонков
-		totsec = 0    // счетчик общей продолжительности звонков
-		// фильтрация по номеру телефона который указан в последовательности numtel
-		for i := 0; i < len(s_inputdata)-1; i++ {
-			if strings.Contains(s_inputdata[i].telsource, numtel) {
-				ss = append(ss, s_inputdata[i])
-				buf_telunik[s_inputdata[i].teldest]+= 1
-				totsec+=s_inputdata[i].secs
-				totkol+=1
-				if s_inputdata[i].secs >= res_sec { // фильтрация по условию результирующего звонка
-					kolres+=1
-					totressec+=s_inputdata[i].secs
-				}
-			}			
-		}
-		tm := strnumtel[key] 
-		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, totsec, len(buf_telunik), kolres, totressec,totkol}
-	}    
+    s_inputdata:=viborkafield(str)  // ВЫБОРКА НУЖНЫХ ПОЛЕЙ: дата,источник звонка, продолжительность звонка,номер куда звонили
+
+	// выборка 
+	strnumtels:= filterdata(strnumtel,keys,s_inputdata,res_sec) 
+	
 	LogFile.Println("Saving xlsx report")
-	savetoxlsx0(namefresult+".xlsx", strnumtel,keys)
+	savetoxlsx0(namefresult+".xlsx", strnumtels,keys)
 	str_title := "Лог звонков:  с \n" + begyearmonth + "-" + begday + " по " + endyearmonth + "-" + endday + ". Выгружено: " + curdate.String()
 	LogFile.Println("Saving html report")
-	htmlresult := genhtmlpage0(strnumtel, str_title,keys)
+	htmlresult := genhtmlpage0(strnumtels, str_title,keys)
 	savestrtofile(namefresult+".html", htmlresult)	
 	LogFile.Println("The end....")
 }
