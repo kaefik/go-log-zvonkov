@@ -170,12 +170,12 @@ func savetoxlsx0(namef string, datas map[string]DataTelMans,keys []string) {
 	titletab := []string{"ФИО РГ",
 		"номер телефона",
 		"ФИО менеджера",
-		"всего продолжит-ть",
-		"всего кол-во звонков",
-		"кол-во уникальных телефонов",
+		"продол-ть",
+		"кол-во звонков",
+		"кол-во уник. тел.",
 		"кол-во результ. звонков",
-		"продолжительность уникальных",
-		"средняя время звонка"}
+		"продол-ть уник.",
+		"ср. время звонка"}
 	for i := 0; i < len(titletab); i++ {
 		cell = row.AddCell() // добавить ячейку в текущей строке
 		cell.Value = titletab[i]
@@ -237,12 +237,12 @@ func genhtmltable0(datas map[string]DataTelMans, zagol string,keys []string) str
 	titletab := []string{"ФИО РГ",
 		"номер телефона",
 		"ФИО менеджера",
-		"всего продолжит-ть",
-		"всего кол-во звонков",
-		"кол-во уникальных телефонов",
+		"продол-ть",
+		"кол-во звонков",
+		"кол-во уник. тел.",
 		"кол-во результ. звонков",
-		"продолжительность уникальных",
-		"средняя время звонка"}
+		"продол-ть уник.",
+		"ср. время звонка"}
 	tabletitle := gentablestroka(titletab)
 
 	tabledata := ""
@@ -548,9 +548,9 @@ func main() {
 		
 	//strnumtels:= filterdata(strnumtel,keys,numtels,res_sec)  // выборка 
 	
-	strnumtelres:=filterresult(strnumtel,keys,numtels,res_sec)
-	strnumteltotalzv:=filtertotalzv(strnumtelres,keys,numtels,res_sec)
-	strnumtels:=filterunik(strnumteltotalzv,keys,numtels,res_sec)
+	strnumtelres:=filterresult(strnumtel,keys,numtels,res_sec) //подсчет кол-во результативных звонков и продолжительности результативных звонков
+	strnumteltotalzv:=filtertotalzv(strnumtelres,keys,numtels,res_sec)  // подсчет общего кол-ва звонков и общей продолжительности звонков
+	strnumtels:=filterunik(strnumteltotalzv,keys,numtels,res_sec) // подсчет кол-ва уникальных телефонов
 	
 	LogFile.Println("Saving xlsx report")
 	savetoxlsx0(namefresult+".xlsx", strnumtels,keys)
