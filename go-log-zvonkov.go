@@ -377,7 +377,20 @@ func viborkafield(str string) []InputDataTel {
 	return s_inputdata
 }
 		
+//выборка только тех даннх которые входят в массив телефонов keys   - T+
+func filternumtels(numtel[]InputDataTel,keys []string) []InputDataTel {
+	resnumtel:= make([]InputDataTel,0)
+	for i:=0;i<len(keys);i++ {
+		for j:=0;j<len(numtel);j++ {
+			if keys[i]==numtel[j].telsource {
+				resnumtel=append(resnumtel,numtel[j])	
+			}
+		}
+	}
+	return resnumtel	
+}
 
+// конечная обработка данных
 func filterdata(strnumtel map[string]DataTelMans, keys []string, s_inputdata []InputDataTel, res_sec int)  map[string]DataTelMans {
 	ss := make([]InputDataTel, 0)
 	kolres := 0
@@ -410,6 +423,70 @@ func filterdata(strnumtel map[string]DataTelMans, keys []string, s_inputdata []I
 	return strnumtel
 }    
 
+
+// подсчет общего кол-ва звонков и общей продолжительности звонков
+func filtertotalzv(strnumtel map[string]DataTelMans, keys []string, s_inputdata []InputDataTel, res_sec int)  map[string]DataTelMans {
+//	ss := make([]InputDataTel, 0)	
+	totsec := 0
+	totkol:=0 // общее кол-во звонков
+	for key, _ := range strnumtel {
+		numtel := key		
+		totkol=0      // общее кол-во звонков			
+		totsec=0    // счетчик общей продолжительности звонков
+		// фильтрация по номеру телефона который указан в последовательности numtel
+		for i := 0; i < len(s_inputdata)-1; i++ {
+			if strings.Contains(s_inputdata[i].telsource, numtel) {
+				totsec+=s_inputdata[i].secs
+				totkol+=1
+			}			
+		}
+		tm := strnumtel[key] 
+		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, totsec, tm.kolunik, tm.secresult, tm.totalsec,totkol}
+	}
+	return strnumtel
+}    
+
+//подсчет кол-во результативных звонков и продолжительности результативных звонков
+func filterresult(strnumtel map[string]DataTelMans, keys []string, s_inputdata []InputDataTel, res_sec int)  map[string]DataTelMans {
+	kolres := 0
+	totressec := 0	
+	for key, _ := range strnumtel {
+		numtel := key
+		kolres=0    // счетчик кол-ва результативных звонков
+		totressec=0 // счетчик продолжительности результативных звонков
+		// фильтрация по номеру телефона который указан в последовательности numtel
+		for i := 0; i < len(s_inputdata)-1; i++ {
+			if strings.Contains(s_inputdata[i].telsource, numtel) {				
+				if s_inputdata[i].secs >= res_sec { // фильтрация по условию результирующего звонка
+					kolres+=1
+					totressec+=s_inputdata[i].secs
+				}
+			}			
+		}
+		tm := strnumtel[key] 
+		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, tm.totalsec, tm.kolunik, kolres, totressec, tm.totalzv}
+	}
+	return strnumtel
+}
+
+// подсчет кол-ва уникальных телефонов
+func filterunik(strnumtel map[string]DataTelMans, keys []string, s_inputdata []InputDataTel, res_sec int)  map[string]DataTelMans {
+	for key, _ := range strnumtel {
+		numtel := key
+		buf_telunik:=make(map[string]int)		
+		// фильтрация по номеру телефона который указан в последовательности numtel
+		for i := 0; i < len(s_inputdata)-1; i++ {
+			if strings.Contains(s_inputdata[i].telsource, numtel) {				
+				buf_telunik[s_inputdata[i].teldest]+= 1				
+			}			
+		}
+		tm := strnumtel[key] 
+		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, tm.totalsec, len(buf_telunik), tm.secresult,tm.secresult, tm.totalzv}
+	}
+	return strnumtel
+}  
+
+  
 func main() {
 	namef := "Report.csv"
 	nameFlog := "list-num-tel.cfg"	
@@ -464,8 +541,16 @@ func main() {
 
     s_inputdata:=viborkafield(str)  // ВЫБОРКА НУЖНЫХ ПОЛЕЙ: дата,источник звонка, продолжительность звонка,номер куда звонили
 
-	// выборка 
-	strnumtels:= filterdata(strnumtel,keys,s_inputdata,res_sec) 
+	
+ 	numtels:=filternumtels(s_inputdata,keys)  // фильтрация по номеру телефона
+	
+	fmt.Println(numtels)
+		
+	//strnumtels:= filterdata(strnumtel,keys,numtels,res_sec)  // выборка 
+	
+	strnumtelres:=filterresult(strnumtel,keys,numtels,res_sec)
+	strnumteltotalzv:=filtertotalzv(strnumtelres,keys,numtels,res_sec)
+	strnumtels:=filterunik(strnumteltotalzv,keys,numtels,res_sec)
 	
 	LogFile.Println("Saving xlsx report")
 	savetoxlsx0(namefresult+".xlsx", strnumtels,keys)
