@@ -17,11 +17,14 @@ import (
 var (
 	d1                                         string      // начальная дата выгрузки
 	d2                                         string      // конечная дата выгрузки
+	t1                                         string      //  начальное время выборки
+	t2                                         string      // конечное время выборки
 	fweek                                      string      // флаг недельной выгрузки
 	fresult                                    int         // длительность результативного звонка (в сек)
 	LogFile                                    *log.Logger //
 	begyearmonth, begday, endyearmonth, endday string
 	buf_telunik                                map[string]int // буфер уникальных номеров для текущего внутр номера - длина этого map будет кол-во уникальных номеров
+	t1hour, t1minute, t2hour, t2minute         int
 )
 
 //инициализация лог файла
@@ -40,6 +43,8 @@ func parse_args() bool {
 	flag.StringVar(&d1, "d1", "", "Начальная дата выгрузки лога звонков: YYYY-MM-DD")
 	flag.StringVar(&d2, "d2", "", "Конечная дата выгрузки лога звонков: YYYY-MM-DD")
 	flag.StringVar(&fweek, "week", "", "Флаг недельной выгрузки: 1")
+	flag.StringVar(&t1, "t1", "", "Начальное время выгрузки лога звонков: HH:MM")
+	flag.StringVar(&t2, "t2", "", "Конечное время выгрузки лога звонков: HH:MM")
 	flag.IntVar(&fresult, "fresult", 0, "длительность результативного звонка (в сек)")
 	flag.Parse()
 	if d1 == "" {
@@ -48,6 +53,11 @@ func parse_args() bool {
 	if d2 == "" {
 		LogFile.Println("Не задан параметр -d2 . Будет использована текущая системная дата", d2)
 	}
+	//	if (t1 == "") || (t1 == "") {
+	//		LogFile.Println("Не задан параметр -t1 или -t2 . Будет использована выгрузка с 0:00 до текущего времени запуска, если использована текущая дата выгрузки, или целый день, если заданы даты выгрузки вручную", d1)
+	//		t1 = ""
+	//		t2 = ""
+	//	}
 	if fweek == "" {
 		LogFile.Println("Не задан параметр -week .")
 	}
@@ -65,6 +75,31 @@ func parse_date(s string) (string, string) {
 	s1 := s[0:7]
 	s2 := s[8:10]
 	return s1, s2
+}
+
+// из строки вида YYYY-MM-DD HH:MM получает строку вида HH:MM
+func gettimefromstring(s string) string {
+	res := ""
+	s = strings.TrimSpace(s)
+	ss := strings.Split(s, " ")
+	if len(ss) >= 2 {
+		res = ss[1]
+	}
+	return res
+}
+
+// разбивают время HH:MM на 2 части: (HH, MM)
+func parse_time(s string) (string, string) {
+	s = strings.TrimSpace(s)
+	ss := strings.Split(s, ":")
+	h := ""
+	m := ""
+	if len(ss) >= 2 {
+		h = ss[0]
+		m = ss[1]
+
+	}
+	return h, m
 }
 
 func sec_to_hour(ss int) int {
@@ -362,6 +397,9 @@ func main() {
 	LogFile = InitLogFile(namelogfile) // инициализация лог файла
 	LogFile.Println("Starting programm")
 
+	//-------для тестирования
+	//	t1 = "9:30"
+	//	t2 = "10:30"
 	//----------------------------------------------
 	if !parse_args() {
 		return
@@ -379,6 +417,16 @@ func main() {
 		endyearmonth = strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
 		begday = strconv.Itoa(tekday)
 		endday = strconv.Itoa(tekday)
+	}
+	if t1 != "" {
+		st1hour, st1minute := parse_time(t1)
+		t1hour, _ = strconv.Atoi(st1hour)
+		t1minute, _ = strconv.Atoi(st1minute)
+	}
+	if t2 != "" {
+		st2hour, st2minute := parse_time(t2)
+		t2hour, _ = strconv.Atoi(st2hour)
+		t2minute, _ = strconv.Atoi(st2minute)
 	}
 	if fweek != "" {
 		tekyear, tekmonth, tekday := time.Now().Date()
@@ -418,12 +466,24 @@ func main() {
 		}
 	}
 
-	s_inputdata2 := make([]InputDataTel, 0)
-	// фильтрация по дате
-	for key, _ := range s_inputdata {
-		s_inputdata2 = append(s_inputdata2, s_inputdata[key])
+	if (t1 != "") && (t2 != "") {
+		// фильтрация по времени
+		s_inputdata2 := make([]InputDataTel, 0)
+		for key, val := range s_inputdata {
+			sthour, stminute := parse_time(gettimefromstring(val.datacall))
+			thour, _ := strconv.Atoi(sthour)
+			tminute, _ := strconv.Atoi(stminute)
+			fmt.Print("val.datacall= ", val.datacall)
+			fmt.Print("    -  thour= ", thour)
+			fmt.Println("    - tminute= ", tminute)
+			if (t1hour <= thour) && (thour <= t2hour) {
+				if (t1minute <= tminute) && (tminute <= t2minute) {
+					s_inputdata2 = append(s_inputdata2, s_inputdata[key])
+				}
+			}
+		}
+		s_inputdata = s_inputdata2
 	}
-	s_inputdata = s_inputdata2
 
 	ss := make([]InputDataTel, 0)
 	kolres := 0
