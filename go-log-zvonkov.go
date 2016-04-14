@@ -3,34 +3,35 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-	"log"
-	"io"
-	"github.com/tealeg/xlsx"
+
 	"github.com/headzoo/surf"
+	"github.com/tealeg/xlsx"
 )
 
 var (
-	d1 string // начальная дата выгрузки
-	d2 string // конечная дата выгрузки
-	fweek string // флаг недельной выгрузки
-	fresult int // длительность результативного звонка (в сек)
-	LogFile *log.Logger // 	
+	d1                                         string      // начальная дата выгрузки
+	d2                                         string      // конечная дата выгрузки
+	fweek                                      string      // флаг недельной выгрузки
+	fresult                                    int         // длительность результативного звонка (в сек)
+	LogFile                                    *log.Logger //
 	begyearmonth, begday, endyearmonth, endday string
-	buf_telunik map[string]int // буфер уникальных номеров для текущего внутр номера - длина этого map будет кол-во уникальных номеров
+	buf_telunik                                map[string]int // буфер уникальных номеров для текущего внутр номера - длина этого map будет кол-во уникальных номеров
 )
 
 //инициализация лог файла
 func InitLogFile(namef string) *log.Logger {
 	file, err := os.OpenFile(namef, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
-	    log.Fatalln("Failed to open log file", os.Stderr, ":", err)
+		log.Fatalln("Failed to open log file", os.Stderr, ":", err)
 	}
-	multi:= io.MultiWriter(file, os.Stdout)
-	LFile:= log.New(multi, "Info: ", log.Ldate|log.Ltime|log.Lshortfile)	
+	multi := io.MultiWriter(file, os.Stdout)
+	LFile := log.New(multi, "Info: ", log.Ldate|log.Ltime|log.Lshortfile)
 	return LFile
 }
 
@@ -39,28 +40,28 @@ func parse_args() bool {
 	flag.StringVar(&d1, "d1", "", "Начальная дата выгрузки лога звонков: YYYY-MM-DD")
 	flag.StringVar(&d2, "d2", "", "Конечная дата выгрузки лога звонков: YYYY-MM-DD")
 	flag.StringVar(&fweek, "week", "", "Флаг недельной выгрузки: 1")
-	flag.IntVar(&fresult,"fresult",0,"длительность результативного звонка (в сек)")
+	flag.IntVar(&fresult, "fresult", 0, "длительность результативного звонка (в сек)")
 	flag.Parse()
 	if d1 == "" {
 		LogFile.Println("Не задан параметр -d1 . Будет использована текущая системная дата", d1)
 	}
-	if d2 == "" {		
+	if d2 == "" {
 		LogFile.Println("Не задан параметр -d2 . Будет использована текущая системная дата", d2)
 	}
 	if fweek == "" {
 		LogFile.Println("Не задан параметр -week .")
 	}
 	if fresult <= 0 {
-		LogFile.Println("Не задан параметр -fresult. Продолжительность результативного звонка - 20 сек.")	
-		fresult=20
-	} else{
-		LogFile.Println("Продолжительность результативного звонка - ",fresult)
+		LogFile.Println("Не задан параметр -fresult. Продолжительность результативного звонка - 20 сек.")
+		fresult = 20
+	} else {
+		LogFile.Println("Продолжительность результативного звонка - ", fresult)
 	}
 	return true
 }
 
 // разбивают дату YYYY-MM-DD на 2 части: (YYYY-MM,DD)
-func parse_date(s string) (string, string) { 
+func parse_date(s string) (string, string) {
 	s1 := s[0:7]
 	s2 := s[8:10]
 	return s1, s2
@@ -82,26 +83,26 @@ func sec_to_s(s int) string {
 }
 
 //новая функция чтения конфиг файла
-func readcfg(namef string) (map[string]DataTelMans,[]string) {
+func readcfg(namef string) (map[string]DataTelMans, []string) {
 	str := readfilecsv(namef)
-	vv := strings.Split(str, "\n")	
-	var keyarr []string	
+	vv := strings.Split(str, "\n")
+	var keyarr []string
 	s_inputdata := make(map[string]DataTelMans)
 	for i := 0; i < len(vv); i++ {
-		if vv[i]!=""{
+		if vv[i] != "" {
 			vv1 := strings.Split(vv[i], ";")
-			if len(vv1)==3 {			
-				s_inputdata[vv1[0]] = DataTelMans{vv1[2], vv1[1], 0, 0, 0, 0,0}
-				keyarr=append(keyarr,vv1[0])
+			if len(vv1) == 3 {
+				s_inputdata[vv1[0]] = DataTelMans{vv1[2], vv1[1], 0, 0, 0, 0, 0}
+				keyarr = append(keyarr, vv1[0])
 			}
 		}
-	}	
-	return s_inputdata,keyarr
+	}
+	return s_inputdata, keyarr
 }
 
 // печать на экран map в том порядке который указан в массиве ключей keys
-func printmapsortkey(datas map[string]DataTelMans,keys []string)  {
-	for i:=0;i<len(keys);i++{
+func printmapsortkey(datas map[string]DataTelMans, keys []string) {
+	for i := 0; i < len(keys); i++ {
 		fmt.Println(datas[keys[i]])
 	}
 }
@@ -127,17 +128,16 @@ func readfilecsv(namef string) string {
 	return string(bs)
 }
 
-
-func devidezero(i1,i2 int) int{
-	if i2==0 {
+func devidezero(i1, i2 int) int {
+	if i2 == 0 {
 		return 0
-	} else{
-		return i1/i2
-	}	
+	} else {
+		return i1 / i2
+	}
 }
 
 //экспорт данных datas в файл xlsx используя сортировку keys - массив указывающий в каком порядке выводить в таблицу
-func savetoxlsx0(namef string, datas map[string]DataTelMans,keys []string) {
+func savetoxlsx0(namef string, datas map[string]DataTelMans, keys []string) {
 	var file *xlsx.File
 	var sheet *xlsx.Sheet
 	var row *xlsx.Row
@@ -152,7 +152,7 @@ func savetoxlsx0(namef string, datas map[string]DataTelMans,keys []string) {
 	//заголовок таблицы
 	row = sheet.AddRow() // добавить строку
 	cell = row.AddCell() // добавить ячейку в текущей строке
-	cell.Value = "выгружено: "+time.Now().String()
+	cell.Value = "выгружено: " + time.Now().String()
 
 	row = sheet.AddRow() // добавить строку
 	titletab := []string{"ФИО РГ",
@@ -169,8 +169,8 @@ func savetoxlsx0(namef string, datas map[string]DataTelMans,keys []string) {
 		cell.Value = titletab[i]
 	}
 
-	for i:=0;i<len(keys);i++{
-		key:=keys[i]
+	for i := 0; i < len(keys); i++ {
+		key := keys[i]
 		row = sheet.AddRow()
 		cell = row.AddCell()
 		cell.Value = datas[key].fio_rg
@@ -189,7 +189,7 @@ func savetoxlsx0(namef string, datas map[string]DataTelMans,keys []string) {
 		cell = row.AddCell()
 		cell.Value = sec_to_s(datas[key].secresult)
 		cell = row.AddCell()
-		cell.Value =  sec_to_s(devidezero(datas[key].totalsec,datas[key].totalzv))
+		cell.Value = sec_to_s(devidezero(datas[key].totalsec, datas[key].totalzv))
 	}
 	err = file.Save(namef)
 	if err != nil {
@@ -218,7 +218,7 @@ func makestrfromarray(dd DataTelMans) []string {
 }
 
 //-- генерация таблицы в html: первый параметр это заголовок таблицы, второй параметр [[],[],...] - строки таблицы, keys - массив указывающий в каком порядке выводить в таблицу
-func genhtmltable0(datas map[string]DataTelMans, zagol string,keys []string) string {
+func genhtmltable0(datas map[string]DataTelMans, zagol string, keys []string) string {
 	res := ""
 	//res = map gentablestroka str
 
@@ -235,8 +235,8 @@ func genhtmltable0(datas map[string]DataTelMans, zagol string,keys []string) str
 
 	tabledata := ""
 	//for key, _ := range datas {
-	for i:=0;i<len(keys);i++{
-		key:=keys[i]
+	for i := 0; i < len(keys); i++ {
+		key := keys[i]
 		str := []string{
 			datas[key].fio_rg,
 			key,
@@ -246,7 +246,7 @@ func genhtmltable0(datas map[string]DataTelMans, zagol string,keys []string) str
 			strconv.Itoa(datas[key].kolunik),
 			strconv.Itoa(datas[key].kolresult),
 			sec_to_s(datas[key].secresult),
-			sec_to_s(devidezero(datas[key].totalsec,datas[key].totalzv))}
+			sec_to_s(devidezero(datas[key].totalsec, datas[key].totalzv))}
 
 		tabledata += gentablestroka(str)
 	}
@@ -256,9 +256,9 @@ func genhtmltable0(datas map[string]DataTelMans, zagol string,keys []string) str
 	return "<TABLE>" + "\n" + "<TABLE BORDER>\n" + tablehtml + res + "</TABLE>"
 }
 
-func genhtmlpage0(datas map[string]DataTelMans, zagol string,keys []string) string {
+func genhtmlpage0(datas map[string]DataTelMans, zagol string, keys []string) string {
 	begstr := "<html>\n <head>\n <meta charset='utf-8'>\n <title>" + zagol + "</title>\n </head>\n <body>\n"
-	bodystr := genhtmltable0(datas, zagol,keys)
+	bodystr := genhtmltable0(datas, zagol, keys)
 	endstr := "</body>\n" + "</html>"
 	return begstr + bodystr + endstr
 }
@@ -280,17 +280,17 @@ func savestrtofile(namef string, str string) int {
 // сохраняет в файл csv результат запроса в файл с именем namef
 func savehttptocsv(namef string, suri string, suri2 string) int {
 	// Create a new browser and open reddit.
-    bow := surf.NewBrowser()
-    err := bow.Open(suri)
-    if err != nil {
-        panic(err)
-    }
-    err = bow.Open(suri2)
-    if err != nil {
-        panic(err)
-    }
-	rescsv:=bow.Body()	
-	savestrtofile("report.csv",rescsv)
+	bow := surf.NewBrowser()
+	err := bow.Open(suri)
+	if err != nil {
+		panic(err)
+	}
+	err = bow.Open(suri2)
+	if err != nil {
+		panic(err)
+	}
+	rescsv := bow.Body()
+	savestrtofile("report.csv", rescsv)
 	return 0
 }
 
@@ -311,7 +311,7 @@ type DataTelMans struct {
 	kolunik   int    //кол-во уникальных телефонных номеров
 	kolresult int    //кол-во результативных звоноков
 	secresult int    // продолжительность результативных звонков (в сек)
-	totalzv   int  // общее кол-во звоноков
+	totalzv   int    // общее кол-во звоноков
 }
 
 func num_mes(m time.Month) int { //переводит из типа time.Month в число
@@ -347,54 +347,61 @@ func num_mes(m time.Month) int { //переводит из типа time.Month �
 
 }
 
+//выделение времени
+func getTime(ss string) string {
+	s := strings.Split(ss, " ")
+	fmt.Println(s[1])
+	return s[1]
+}
+
 func main() {
 	namef := "Report.csv"
-	nameFlog := "list-num-tel.cfg"	
-	namelogfile:="go-log-zvonkov.log"
+	nameFlog := "list-num-tel.cfg"
+	namelogfile := "go-log-zvonkov.log"
 
-	LogFile=InitLogFile(namelogfile)  // инициализация лог файла		
-	LogFile.Println("Starting programm")	
+	LogFile = InitLogFile(namelogfile) // инициализация лог файла
+	LogFile.Println("Starting programm")
 
-//----------------------------------------------
+	//----------------------------------------------
 	if !parse_args() {
-	   return
- 	}			
-	res_sec:=fresult // маркер результативности звонка менеджера (в сек)	
-	curdate := time.Now()		
-	if (d1!="") {
-		begyearmonth,begday=parse_date(d1)		
+		return
 	}
-	if (d2!="") {
-			endyearmonth,endday=parse_date(d2)		
-			}else {		
-				tekyear, tekmonth, tekday := time.Now().Date()
-				begyearmonth=strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
-				endyearmonth=strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
-				begday=strconv.Itoa(tekday)
-				endday=strconv.Itoa(tekday)
-			}				
-	if (fweek!="") {	
-				tekyear, tekmonth, tekday := time.Now().Date()				
-				if  (tekday-4)<1 {
-									begday="1"					
-				} else{
-						begday=strconv.Itoa(tekday-4)
-				}	
-				begyearmonth=strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))		
-				endyearmonth=strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
-				endday=strconv.Itoa(tekday)				
-			}				
-	namefresult:= begyearmonth+"-"+begday+" по "+endyearmonth+"-"+endday+"-лог звонков"
-	LogFile.Println("Begin date: ",begyearmonth+"-"+begday)
-	LogFile.Println("End date: ",endyearmonth+"-"+endday)
-//----------------------------------------------
+	res_sec := fresult // маркер результативности звонка менеджера (в сек)
+	curdate := time.Now()
+	if d1 != "" {
+		begyearmonth, begday = parse_date(d1)
+	}
+	if d2 != "" {
+		endyearmonth, endday = parse_date(d2)
+	} else {
+		tekyear, tekmonth, tekday := time.Now().Date()
+		begyearmonth = strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
+		endyearmonth = strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
+		begday = strconv.Itoa(tekday)
+		endday = strconv.Itoa(tekday)
+	}
+	if fweek != "" {
+		tekyear, tekmonth, tekday := time.Now().Date()
+		if (tekday - 4) < 1 {
+			begday = "1"
+		} else {
+			begday = strconv.Itoa(tekday - 4)
+		}
+		begyearmonth = strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
+		endyearmonth = strconv.Itoa(tekyear) + "-" + strconv.Itoa(num_mes(tekmonth))
+		endday = strconv.Itoa(tekday)
+	}
+	namefresult := begyearmonth + "-" + begday + " по " + endyearmonth + "-" + endday + "-лог звонков"
+	LogFile.Println("Begin date: ", begyearmonth+"-"+begday)
+	LogFile.Println("End date: ", endyearmonth+"-"+endday)
+	//----------------------------------------------
 	suri := "http://voip.2gis.local/cisco-stat/cdr.php?s=1&t=&order=dateTimeOrigination&sens=DESC&current_page=0&posted=1&current_page=0&fromstatsmonth=" + begyearmonth + "&tostatsmonth=" + endyearmonth + "&Period=Day&fromday=true&fromstatsday_sday=" + begday + "&fromstatsmonth_sday=" + begyearmonth + "&today=true&tostatsday_sday=" + endday + "&tostatsmonth_sday=" + endyearmonth + "&callingPartyNumber=&callingPartyNumbertype=2&originalCalledPartyNumber=%2B7&originalCalledPartyNumbertype=2&origDeviceName=&origDeviceNametype=1&destDeviceName=&destDeviceNametype=1&resulttype=min&image16.x=28&image16.y=8"
 	LogFile.Println(suri)
 	suri2 := "http://voip.2gis.local/cisco-stat/export_csv.php"
-	LogFile.Println(suri2)	
-	savehttptocsv(namef,suri,suri2)
-	str := readfilecsv(namef)		
-	strnumtel,keys:=readcfg(nameFlog)
+	LogFile.Println(suri2)
+	savehttptocsv(namef, suri, suri2)
+	str := readfilecsv(namef)
+	strnumtel, keys := readcfg(nameFlog)
 
 	//загрузка конфига справочника
 	// ВЫБОРКА НУЖНЫХ ПОЛЕЙ: дата,источник звонка, продолжительность звонка,номер куда звонили
@@ -402,23 +409,31 @@ func main() {
 	var vv1 []string
 	s_inputdata := make([]InputDataTel, 0)
 	for i := 0; i < len(vv); i++ {
-		if vv[i]!=""{
+		if vv[i] != "" {
 			vv1 = strings.Split(vv[i], ";")
-			if len(vv1)>=10{
+			if len(vv1) >= 10 {
 				isec, _ := strconv.Atoi(vv1[10]) //конвертация из string в int
-				s_inputdata = append(s_inputdata, InputDataTel{vv1[0], vv1[1], isec, vv1[2]})		
+				s_inputdata = append(s_inputdata, InputDataTel{vv1[0], vv1[1], isec, vv1[2]})
 			}
 		}
-	}  	
+	}
+
+	s_inputdata2 := make([]InputDataTel, 0)
+	// фильтрация по дате
+	for key, _ := range s_inputdata {
+		s_inputdata2 = append(s_inputdata2, s_inputdata[key])
+	}
+	s_inputdata = s_inputdata2
+
 	ss := make([]InputDataTel, 0)
 	kolres := 0
 	totressec := 0
 	totsec := 0
-	totkol:=0 // общее кол-во звонков
+	totkol := 0 // общее кол-во звонков
 	for key, _ := range strnumtel {
 		numtel := key
 		buf_telunik = make(map[string]int)
-		totkol=0      // общее кол-во звонков
+		totkol = 0    // общее кол-во звонков
 		kolres = 0    // счетчик кол-ва результативных звонков
 		totressec = 0 // счетчик продолжительности результативных звонков
 		totsec = 0    // счетчик общей продолжительности звонков
@@ -426,23 +441,26 @@ func main() {
 		for i := 0; i < len(s_inputdata)-1; i++ {
 			if strings.Contains(s_inputdata[i].telsource, numtel) {
 				ss = append(ss, s_inputdata[i])
-				buf_telunik[s_inputdata[i].teldest]+= 1
-				totsec+=s_inputdata[i].secs
-				totkol+=1
+				buf_telunik[s_inputdata[i].teldest] += 1
+				totsec += s_inputdata[i].secs
+				totkol += 1
 				if s_inputdata[i].secs >= res_sec { // фильтрация по условию результирующего звонка
-					kolres+=1
-					totressec+=s_inputdata[i].secs
+					kolres += 1
+					totressec += s_inputdata[i].secs
 				}
-			}			
+			}
 		}
-		tm := strnumtel[key] 
-		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, totsec, len(buf_telunik), kolres, totressec,totkol}
-	}    
+		tm := strnumtel[key]
+		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, totsec, len(buf_telunik), kolres, totressec, totkol}
+	}
 	LogFile.Println("Saving xlsx report")
-	savetoxlsx0(namefresult+".xlsx", strnumtel,keys)
+	savetoxlsx0(namefresult+".xlsx", strnumtel, keys)
 	str_title := "Лог звонков:  с \n" + begyearmonth + "-" + begday + " по " + endyearmonth + "-" + endday + ". Выгружено: " + curdate.String()
 	LogFile.Println("Saving html report")
-	htmlresult := genhtmlpage0(strnumtel, str_title,keys)
-	savestrtofile(namefresult+".html", htmlresult)	
+	htmlresult := genhtmlpage0(strnumtel, str_title, keys)
+	savestrtofile(namefresult+".html", htmlresult)
 	LogFile.Println("The end....")
+
+	fmt.Println(getTime("01.04.2016 10:59:02"))
+
 }

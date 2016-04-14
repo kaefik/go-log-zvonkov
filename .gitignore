@@ -25,3 +25,5 @@ _testmain.go
 *.xlsx
 *.pdf
 *.csv
+*.log
+*.cfg
