@@ -43,8 +43,8 @@ func parse_args() bool {
 	flag.StringVar(&d1, "d1", "", "Начальная дата выгрузки лога звонков: YYYY-MM-DD")
 	flag.StringVar(&d2, "d2", "", "Конечная дата выгрузки лога звонков: YYYY-MM-DD")
 	flag.StringVar(&fweek, "week", "", "Флаг недельной выгрузки: 1")
-	flag.StringVar(&t1, "t1", "", "Начальное время выгрузки лога звонков: HH:MM")
-	flag.StringVar(&t2, "t2", "", "Конечное время выгрузки лога звонков: HH:MM")
+	flag.StringVar(&t1, "t1", "", "Начальное время выгрузки лога звонков(время НСК): HH:MM")
+	flag.StringVar(&t2, "t2", "", "Конечное время выгрузки лога звонков(время НСК): HH:MM")
 	flag.IntVar(&fresult, "fresult", 0, "длительность результативного звонка (в сек)")
 	flag.Parse()
 	if d1 == "" {
@@ -53,11 +53,11 @@ func parse_args() bool {
 	if d2 == "" {
 		LogFile.Println("Не задан параметр -d2 . Будет использована текущая системная дата", d2)
 	}
-	//	if (t1 == "") || (t1 == "") {
-	//		LogFile.Println("Не задан параметр -t1 или -t2 . Будет использована выгрузка с 0:00 до текущего времени запуска, если использована текущая дата выгрузки, или целый день, если заданы даты выгрузки вручную", d1)
-	//		t1 = ""
-	//		t2 = ""
-	//	}
+	if (t1 == "") || (t1 == "") {
+		LogFile.Println("Не задан параметр -t1 или -t2 . Будет использована выгрузка с 0:00 до текущего времени запуска, если использована текущая дата выгрузки, или целый день, если заданы даты выгрузки вручную", d1)
+		t1 = ""
+		t2 = ""
+	}
 	if fweek == "" {
 		LogFile.Println("Не задан параметр -week .")
 	}
@@ -397,13 +397,16 @@ func main() {
 	LogFile = InitLogFile(namelogfile) // инициализация лог файла
 	LogFile.Println("Starting programm")
 
-	//-------для тестирования
-	//	t1 = "9:30"
-	//	t2 = "10:30"
 	//----------------------------------------------
 	if !parse_args() {
 		return
 	}
+
+	//	//-------для тестирования
+	//	t1 = "12:00"
+	//	t2 = "15:00"
+	//------------------
+
 	res_sec := fresult // маркер результативности звонка менеджера (в сек)
 	curdate := time.Now()
 	if d1 != "" {
@@ -466,24 +469,53 @@ func main() {
 		}
 	}
 
+	fmt.Println("t1= ", t1)
+	fmt.Println("t2= ", t2)
+	fmt.Println("t1hour= ", t1hour)
+	fmt.Println("t1minute= ", t1minute)
+	fmt.Println("t2hour= ", t2hour)
+	fmt.Println("t2minute= ", t2minute)
+
+	s_inputdata2 := make([]InputDataTel, 0)
 	if (t1 != "") && (t2 != "") {
 		// фильтрация по времени
-		s_inputdata2 := make([]InputDataTel, 0)
-		for key, val := range s_inputdata {
+		for _, val := range s_inputdata {
 			sthour, stminute := parse_time(gettimefromstring(val.datacall))
 			thour, _ := strconv.Atoi(sthour)
 			tminute, _ := strconv.Atoi(stminute)
-			fmt.Print("val.datacall= ", val.datacall)
-			fmt.Print("    -  thour= ", thour)
-			fmt.Println("    - tminute= ", tminute)
-			if (t1hour <= thour) && (thour <= t2hour) {
+
+			if (t1hour < thour) && (thour < t2hour) {
+				//				fmt.Print("val.datacall= ", val.datacall)
+				//				fmt.Print("    -  thour= ", thour)
+				//				fmt.Println("    - tminute= ", tminute)
+				s_inputdata2 = append(s_inputdata2, val)
+			}
+			if (t2hour == thour) && (t1hour == thour) {
 				if (t1minute <= tminute) && (tminute <= t2minute) {
-					s_inputdata2 = append(s_inputdata2, s_inputdata[key])
+					//					fmt.Print("val.datacall= ", val.datacall)
+					//					fmt.Print("    -  thour= ", thour)
+					//					fmt.Println("    - tminute= ", tminute)
+					s_inputdata2 = append(s_inputdata2, val)
+				}
+			} else {
+				if (t2hour == thour) && (tminute <= t2minute) {
+					//					fmt.Print("val.datacall= ", val.datacall)
+					//					fmt.Print("    -  thour= ", thour)
+					//					fmt.Println("    - tminute= ", tminute)
+					s_inputdata2 = append(s_inputdata2, val)
+				}
+				if (t1hour == thour) && (t1minute <= tminute) {
+					//					fmt.Print("val.datacall= ", val.datacall)
+					//					fmt.Print("    -  thour= ", thour)
+					//					fmt.Println("    - tminute= ", tminute)
+					s_inputdata2 = append(s_inputdata2, val)
+
 				}
 			}
 		}
-		s_inputdata = s_inputdata2
+
 	}
+	s_inputdata = s_inputdata2
 
 	ss := make([]InputDataTel, 0)
 	kolres := 0
@@ -513,6 +545,9 @@ func main() {
 		tm := strnumtel[key]
 		strnumtel[key] = DataTelMans{tm.fio_rg, tm.fio_man, totsec, len(buf_telunik), kolres, totressec, totkol}
 	}
+
+	//	fmt.Println("strnumtel= ", strnumtel)
+
 	LogFile.Println("Saving xlsx report")
 	savetoxlsx0(namefresult+".xlsx", strnumtel, keys)
 	str_title := "Лог звонков:  с \n" + begyearmonth + "-" + begday + " по " + endyearmonth + "-" + endday + ". Выгружено: " + curdate.String()
@@ -521,6 +556,6 @@ func main() {
 	savestrtofile(namefresult+".html", htmlresult)
 	LogFile.Println("The end....")
 
-	fmt.Println(getTime("01.04.2016 10:59:02"))
+	//	fmt.Println(getTime("01.04.2016 10:59:02"))
 
 }
