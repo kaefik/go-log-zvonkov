@@ -550,7 +550,7 @@ func main() {
 
 	LogFile.Println("Saving xlsx report")
 	savetoxlsx0(namefresult+".xlsx", strnumtel, keys)
-	str_title := "Лог звонков:  с \n" + begyearmonth + "-" + begday + " по " + endyearmonth + "-" + endday + ". Выгружено: " + curdate.String()
+	str_title := "Лог звонков:  с \n" + begyearmonth + "-" + begday + " по " + endyearmonth + "-" + endday + ". Выгружено: " + curdate.String() + "\n" + "начальное время: " + t1 + "   конечное время: " + t2
 	LogFile.Println("Saving html report")
 	htmlresult := genhtmlpage0(strnumtel, str_title, keys)
 	savestrtofile(namefresult+".html", htmlresult)
